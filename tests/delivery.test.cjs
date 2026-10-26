@@ -10,10 +10,10 @@ function app(fetch){
   return elements.get(selector);
  };
  const context=vm.createContext({
-  document:{querySelector:element,querySelectorAll:()=>[]},
+  document:{querySelector:element,querySelectorAll:()=>[],addEventListener(){},visibilityState:'visible'},
   localStorage:{getItem:()=>JSON.stringify({deviceCode:'test-private-code-123456'}),setItem(){}},
   navigator:{},crypto:{randomUUID:()=> 'stable-command-id'},fetch,
-  AbortController,setTimeout:(fn,ms)=>ms===10000?setTimeout(fn,ms):setTimeout(fn,0),clearTimeout,
+  AbortController,setInterval:fn=>{context.healthTick=fn;},setTimeout:(fn,ms)=>ms===10000?setTimeout(fn,ms):setTimeout(fn,0),clearTimeout,
  });
  vm.runInContext(source,context);
  return {context,elements};
@@ -52,4 +52,14 @@ test('a rejected command is not retried',async()=>{
  });
  assert.equal(await context.send('/message',{message:'test'},''),false);
  assert.equal(writes,1);
+});
+test('the connection indicator refreshes after the receiver goes offline',async()=>{
+ let online=true;
+ const {context,elements}=app(async()=>({ok:true,json:async()=>({ok:true,online})}));
+ await new Promise(resolve=>setImmediate(resolve));
+ assert.equal(elements.get('#connection').textContent,'TV conectada (heartbeat)');
+ online=false;
+ context.healthTick();
+ await new Promise(resolve=>setImmediate(resolve));
+ assert.equal(elements.get('#connection').textContent,'TV sem conexão recente');
 });
